@@ -37,7 +37,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var windows: [WallpaperWindow] = []
     private var statusItem: NSStatusItem!
     private var paused = false { didSet { windows.forEach { $0.userPaused = paused } } }
-    private var reactive = true { didSet { windows.forEach { $0.renderer.reactive = reactive } } }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do { try audio.start() } catch { NSLog("Eddy: system audio unavailable: \(error)") }
@@ -56,7 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if windows.map(\.frame) == screens.map(\.frame) { return }
         windows.forEach { $0.close() }
         windows = screens.map { WallpaperWindow(screen: $0, audio: audio) }
-        windows.forEach { $0.userPaused = paused; $0.renderer.reactive = reactive }
+        windows.forEach { $0.userPaused = paused }
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
@@ -66,8 +65,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.target = self
             if let on { item.state = on ? .on : .off }
         }
+        let s = Settings.shared
         add(paused ? "Resume" : "Pause", #selector(togglePause))
-        add("React to Audio", #selector(toggleReactive), on: reactive)
+        add("React to Audio", #selector(toggleReactive), on: s.reactive)
+        menu.addItem(picker("Palette", Palette.allCases.map(\.rawValue), current: s.palette.rawValue, #selector(pickPalette)))
+        menu.addItem(picker("Intensity", Intensity.allCases.map(\.rawValue), current: s.intensity.rawValue, #selector(pickIntensity)))
+        menu.addItem(.separator())
         add("Launch at Login", #selector(toggleLogin), on: SMAppService.mainApp.status == .enabled)
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Eddy", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -93,8 +96,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return img
     }
 
+    /// A submenu of radio-style choices; the chosen title rides along as `representedObject`.
+    private func picker(_ title: String, _ options: [String], current: String, _ action: Selector) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        for option in options {
+            let i = sub.addItem(withTitle: option, action: action, keyEquivalent: "")
+            i.target = self
+            i.representedObject = option
+            i.state = option == current ? .on : .off
+        }
+        item.submenu = sub
+        return item
+    }
+
     @objc private func togglePause() { paused.toggle() }
-    @objc private func toggleReactive() { reactive.toggle() }
+    @objc private func toggleReactive() { Settings.shared.reactive.toggle() }
+    @objc private func pickPalette(_ sender: NSMenuItem) {
+        Settings.shared.palette = Palette(rawValue: sender.representedObject as! String) ?? .neon
+    }
+    @objc private func pickIntensity(_ sender: NSMenuItem) {
+        Settings.shared.intensity = Intensity(rawValue: sender.representedObject as! String) ?? .normal
+    }
     @objc private func toggleLogin() {
         let svc = SMAppService.mainApp
         do { try svc.status == .enabled ? svc.unregister() : svc.register() }

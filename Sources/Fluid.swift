@@ -41,8 +41,6 @@ private struct Emitter {
 }
 
 final class FluidRenderer: NSObject, MTKViewDelegate {
-    var reactive = true
-
     private let device: MTLDevice
     private let queue: MTLCommandQueue
     private let kernels: [String: MTLComputePipelineState]
@@ -136,8 +134,11 @@ final class FluidRenderer: NSObject, MTKViewDelegate {
     // MARK: forces in
 
     private func emit(_ enc: MTLComputeCommandEncoder, _ dt: Float) {
+        let settings = Settings.shared
+        let palette = settings.palette
+        let gain = settings.intensity.gain
         let raw = audio?.current() ?? .init()
-        let live = reactive ? raw : .init()
+        let live = settings.reactive ? raw : .init()
         smooth.bass = max(live.bass, smooth.bass - dt * 4)
         smooth.mid = max(live.mid, smooth.mid - dt * 4)
         smooth.high = max(live.high, smooth.high - dt * 4)
@@ -150,34 +151,36 @@ final class FluidRenderer: NSObject, MTKViewDelegate {
             emitters[i].hue = (emitters[i].hue + dt * (0.01 + 0.1 * smooth.mid)).truncatingRemainder(dividingBy: 1)
             let force = v * Float(simSize.x) * Tuning.emitterForce * dt
             splat(enc, velocity, p, Tuning.emitterRadius, SIMD4(force.x, force.y, 0, 0))
-            let color = hsv(emitters[i].hue, 0.85, 1) * Tuning.emitterDye * (1 + 4 * smooth.bass) * frame
-            splat(enc, dye, p, Tuning.emitterRadius * (1 + 2 * smooth.bass), color)
+            let color = palette.color(emitters[i].hue) * Tuning.emitterDye * (1 + 4 * smooth.bass * gain) * frame
+            splat(enc, dye, p, Tuning.emitterRadius * (1 + 2 * smooth.bass * gain), color)
         }
 
-        if reactive {
+        if settings.reactive {
             beatsSeen = max(beatsSeen, raw.beats - 2)   // never replay a backlog
-            while beatsSeen < raw.beats { beatsSeen += 1; burst(enc) }
+            while beatsSeen < raw.beats { beatsSeen += 1; burst(enc, palette, gain) }
         } else {
             beatsSeen = raw.beats
         }
-        if Float.random(in: 0..<1) < smooth.high * Tuning.sparkleRate * frame { sparkle(enc) }
+        if Float.random(in: 0..<1) < smooth.high * Tuning.sparkleRate * frame * gain { sparkle(enc, palette) }
     }
 
-    private func burst(_ enc: MTLComputeCommandEncoder) {
+    private func burst(_ enc: MTLComputeCommandEncoder, _ palette: Palette, _ gain: Float) {
         let p = SIMD2<Float>(.random(in: 0.15...0.85), .random(in: 0.15...0.85))
+        let force = Tuning.beatForce * gain
         for k in 0..<8 {
             let a = Float(k) / 8 * 2 * .pi
             let d = SIMD2<Float>(cos(a), sin(a))
-            splat(enc, velocity, p + d * 0.03, Tuning.beatRadius, SIMD4(d.x * Tuning.beatForce, d.y * Tuning.beatForce, 0, 0))
+            splat(enc, velocity, p + d * 0.03, Tuning.beatRadius, SIMD4(d.x * force, d.y * force, 0, 0))
         }
-        splat(enc, dye, p, Tuning.beatRadius * 2, hsv(.random(in: 0..<1), 0.7, 1) * 0.8)
+        splat(enc, dye, p, Tuning.beatRadius * 2 * gain, palette.color(.random(in: 0..<1)) * 0.8)
     }
 
-    private func sparkle(_ enc: MTLComputeCommandEncoder) {
+    private func sparkle(_ enc: MTLComputeCommandEncoder, _ palette: Palette) {
         let p = SIMD2<Float>(.random(in: 0.05...0.95), .random(in: 0.05...0.95))
         let a = Float.random(in: 0..<2 * .pi)
         splat(enc, velocity, p, 0.0006, SIMD4(cos(a) * 80, sin(a) * 80, 0, 0))
-        splat(enc, dye, p, 0.0004, hsv(.random(in: 0..<1), 0.3, 1) * 0.6)
+        let tint = palette.color(.random(in: 0..<1)) * 0.4 + SIMD4<Float>(0.6, 0.6, 0.6, 0)   // palette-tinted white
+        splat(enc, dye, p, 0.0004, tint * 0.6)
     }
 
     private func splat(_ enc: MTLComputeCommandEncoder, _ tex: MTLTexture, _ p: SIMD2<Float>, _ radius: Float, _ value: SIMD4<Float>) {
