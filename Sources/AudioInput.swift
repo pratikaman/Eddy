@@ -192,7 +192,9 @@ final class Analyzer {
     /// (silence RMS, auto-gain floor). Below the RMS everything reads zero; the floor stops
     /// quiet hiss from being normalised up to full scale.
     static let systemFloor: (silence: Float, peak: Float) = (1e-4, 1e-3)
-    static let roomFloor: (silence: Float, peak: Float) = (0.02, 20)   // built-in mic: room hiss ≈ rms 0.012, raw 2–6; speaker music ≈ rms 0.05–0.2, raw 15–90
+    static let roomFloor: (silence: Float, peak: Float) = (1e-3, 6)      // built-in mic: hiss ≈ rms 0.005–0.018, raw 2–6; quiet music ≈ rms 0.01–0.03, raw 2–11; loud ≈ rms 0.05–0.2, raw 15–90
+    /// Sound counts as silence when it's within this factor of the running noise floor (the room's hiss).
+    static let gateAboveNoise: Float = 2
     /// Each band rides its own auto-gain, but may be boosted at most this far past the loudest band,
     /// so a hi-hat can't squash the kick and a pure tone's leakage doesn't read as a full band.
     static let relativeFloor: Float = 0.05
@@ -203,6 +205,7 @@ final class Analyzer {
     private var ring = [Float](repeating: 0, count: n)
     private var head = 0
     private var peaks = SIMD3<Float>(repeating: systemFloor.peak)
+    private var noise: Float = 1          // running minimum of RMS: what this room sounds like when nothing plays
     private var bassAvg: Float = 0
     private var samplesSinceBeat = 0
     private var levels = AudioInput.Levels()
@@ -213,6 +216,7 @@ final class Analyzer {
         self.sampleRate = sampleRate
         self.floor = floor
         peaks = SIMD3(repeating: floor.peak)
+        noise = 1
     }
 
     func push(_ samples: [Float]) -> AudioInput.Levels {
@@ -222,10 +226,10 @@ final class Analyzer {
         var rms: Float = 0
         vDSP_rmsqv(frame, 1, &rms, vDSP_Length(Self.n))
         raw.rms = rms
-        if rms < floor.silence {              // silence: fall to zero instead of amplifying noise
-            levels.bass = 0; levels.mid = 0; levels.high = 0
-            return levels
-        }
+        // Noise floor: drops instantly to any new minimum, drifts up ~0.5%/s so a steady room re-calibrates
+        // over minutes, while a steady song (whose quietest 43 ms is close to its loudest) isn't mistaken for hiss.
+        noise = min(noise * 1.00005, max(rms, 1e-6))
+        let gate = max(floor.silence, noise * Self.gateAboveNoise)
         vDSP.multiply(frame, window, result: &frame)
 
         let half = Self.n / 2
@@ -251,6 +255,10 @@ final class Analyzer {
         }
         let bands = SIMD3<Float>(band(20, 150), band(150, 2000), band(2000, 8000)) * Self.tilt
         raw.bands = bands
+        if rms < gate {                        // silence: fall to zero instead of amplifying hiss
+            levels.bass = 0; levels.mid = 0; levels.high = 0
+            return levels
+        }
         let loudest = max(peaks.max() * 0.998, bands.max(), floor.peak)
         peaks = pointwiseMax(pointwiseMax(peaks * 0.998, bands), SIMD3(repeating: max(floor.peak, loudest * Self.relativeFloor)))
         let level = bands / peaks
@@ -271,6 +279,7 @@ final class Analyzer {
         func run(_ hz: Float) -> AudioInput.Levels {
             let a = Analyzer()
             var out = AudioInput.Levels()
+            _ = a.push([Float](repeating: 0, count: 2048))        // like real playback: silence first, so the noise floor is known
             for chunk in 0..<8 {
                 out = a.push((0..<512).map { 0.5 * sin(2 * .pi * hz * Float(chunk * 512 + $0) / 48000) })
             }

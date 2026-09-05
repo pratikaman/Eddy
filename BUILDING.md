@@ -53,8 +53,9 @@ That's it: the menu, settings and `--preview` pick it up.
 
 - Fluid look: `Tuning` at the top of `Sources/Fluid.swift`.
 - Palettes: `Palette.range` in `Settings.swift` (hue base, hue span, saturation).
-- Audio: `Analyzer.tilt` (pink-spectrum compensation), `systemFloor` / `roomFloor`
-  (silence RMS and auto-gain floor per source), `relativeFloor` (how far a quiet band may be
-  boosted past the loudest one). The room floor was measured on a MacBook Pro's built-in
-  mic; other rooms and mics may want different numbers, and `--levels --mic` shows you the
-  raw values to set them by.
+- Audio: `Analyzer.tilt` (pink-spectrum compensation), `relativeFloor` (how far a quiet band
+  may be boosted past the loudest one), `gateAboveNoise` (sound within this factor of the
+  running noise floor counts as silence; the floor is the quietest RMS heard, drifting up
+  slowly), and `systemFloor` / `roomFloor` (absolute minimum silence RMS and auto-gain floor per
+  source). Room numbers were measured on a MacBook Pro's built-in mic; `--levels --mic` prints
+  the raw values if yours differ.

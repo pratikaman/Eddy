@@ -175,9 +175,9 @@ fragment float4 scene_aurora(VOut in [[stage_in]], constant Uniforms& u [[buffer
         // crisp upper edge, soft trail hanging below it
         float shape = dy > 0.0 ? exp(-dy * dy * (90.0 - 40.0 * bass)) : exp(dy * (9.0 - 4.0 * bass)) * 0.6;
         float streak = pow(0.5 + 0.5 * fbm(float2(x * 14.0, t * 2.0 + fi)), 2.0);
-        col += pal(h * 0.6 + fi * 0.25 + t * 0.2, u) * shape * streak * (0.3 + 0.7 * h) * (0.35 + 0.55 * bass);
+        col += pal(h * 0.6 + fi * 0.25 + t * 0.2, u) * shape * streak * (0.3 + 0.7 * h) * (0.3 + 1.0 * bass);
     }
-    col *= 1.0 + u.beat * 0.5;
+    col *= 1.0 + u.beat * 0.8;
     col += stars(in.uv * u.resolution, 9.0, 0.97, u.time * 3.0) * (0.15 + 1.2 * high);
     return float4(col, 1);
 }
@@ -217,7 +217,7 @@ fragment float4 scene_nebula(VOut in [[stage_in]], constant Uniforms& u [[buffer
     float n2 = fbm(q + float2(n1 * 1.8, t * 2.0) + 5.2);
     float n = fbm(q + n2 * 2.2 * (1.0 + 0.4 * mid));
     float density = smoothstep(0.35, 0.85, n);
-    float3 col = pal(n2 + t * 0.6, u) * density * density * (1.0 + 1.6 * bass);
+    float3 col = pal(n2 + t * 0.6, u) * density * density * (0.8 + 2.2 * bass + 0.6 * u.beat);
     col += pal(n + 0.4, u) * pow(n1, 3.0) * 0.4;
     col += float3(0.01, 0.01, 0.03);
     col += stars(in.uv * u.resolution, 8.0, 0.985, u.time) * (0.6 + 3.0 * high) * (1.0 + u.beat);
