@@ -19,6 +19,20 @@ whatever you're listening to.
 
 ## Installing
 
+### The quick way: one line in Terminal
+
+Open **Terminal** (press ⌘ Space, type `Terminal`, press Return), paste this, and press Return:
+
+```sh
+curl -L https://github.com/pratikaman/Eddy/releases/latest/download/Eddy.zip -o /tmp/Eddy.zip && ditto -xk /tmp/Eddy.zip /Applications && open /Applications/Eddy.app
+```
+
+That downloads Eddy, puts it in your Applications folder and opens it. Your Mac will ask one
+question (see [What your Mac will ask](#what-your-mac-will-ask) below), then your desktop
+starts moving.
+
+### The click way
+
 1. [Download Eddy](https://github.com/pratikaman/Eddy/releases/latest/download/Eddy.zip).
 2. Double-click the downloaded file to unpack it, then drag **Eddy** into your
    **Applications** folder.
@@ -31,6 +45,16 @@ whatever you're listening to.
    ever leaves your Mac.
 
 That's it. Your desktop should already be moving.
+
+### What your Mac will ask
+
+- **"Apple could not verify Eddy is free of malware"** (only when you downloaded with a
+  browser). Eddy is homemade, not from the App Store, so your Mac is being cautious. Click
+  **Done**, open **System Settings → Privacy & Security**, scroll to the bottom, click
+  **Open Anyway**, and open Eddy again. The Terminal route above skips this entirely.
+- **"Eddy would like to record this computer's audio"**. Click **Allow**. This is how Eddy
+  hears your music. It never records or saves anything, and nothing leaves your Mac. If you
+  click Don't Allow, Eddy still runs; it just drifts calmly without reacting to sound.
 
 ## Using it
 
