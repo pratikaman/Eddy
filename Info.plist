@@ -22,6 +22,8 @@
 	<true/>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Room mode lets the wallpaper move to the sound in the room. Nothing is recorded or stored.</string>
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>Eddy listens to what's playing so the wallpaper can move to it. Nothing is recorded or stored.</string>
 </dict>

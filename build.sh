@@ -10,7 +10,11 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp Sources/Shaders.metal "$APP/Contents/Resources/"   # compiled at launch (see Fluid.swift)
 swiftc -O Sources/*.swift -o "$APP/Contents/MacOS/Eddy"
 cp Info.plist "$APP/Contents/Info.plist"
-codesign --force -s - "$APP"
+# A stable signing identity keeps macOS permission grants (audio, microphone) across rebuilds;
+# ad-hoc signatures change every build and reset them. Falls back to ad-hoc if the identity is absent.
+IDENTITY="${CODESIGN_IDENTITY:-Pratik Dev Signing}"
+security find-identity -v -p codesigning 2>/dev/null | grep -q "$IDENTITY" || IDENTITY="-"
+codesign --force -s "$IDENTITY" "$APP"
 echo "Built $APP"
 
 if [[ "${1:-}" == "--install" ]]; then

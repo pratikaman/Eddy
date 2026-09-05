@@ -51,14 +51,14 @@ final class FluidRenderer: NSObject, MTKViewDelegate {
     private let divergence: MTLTexture, curl: MTLTexture
     private let simSize: SIMD2<Int>
     private let aspect: Float
-    private let audio: SystemAudio?
+    private let audio: AudioInput?
     private var emitters: [Emitter]
     private var time: Float = 0
     private var last = CACurrentMediaTime()
-    private var smooth = SystemAudio.Levels()
+    private var smooth = AudioInput.Levels()
     private var beatsSeen = 0
 
-    init(view: MTKView, audio: SystemAudio?) {
+    init(view: MTKView, audio: AudioInput?) {
         let dev = view.device ?? MTLCreateSystemDefaultDevice()!
         // Compiled at launch from the bundled .metal source: no Metal toolchain needed to build.
         let src = try! String(contentsOf: Bundle.main.url(forResource: "Shaders", withExtension: "metal")!, encoding: .utf8)

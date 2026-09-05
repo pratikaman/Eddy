@@ -9,7 +9,7 @@ final class WallpaperWindow: NSWindow {
     let renderer: FluidRenderer
     var userPaused = false { didSet { updatePause() } }
 
-    init(screen: NSScreen, audio: SystemAudio?) {
+    init(screen: NSScreen, audio: AudioInput?) {
         view = MTKView(frame: NSRect(origin: .zero, size: screen.frame.size), device: MTLCreateSystemDefaultDevice())
         renderer = FluidRenderer(view: view, audio: audio)
         super.init(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
@@ -33,13 +33,13 @@ final class WallpaperWindow: NSWindow {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
-    private let audio = SystemAudio()
+    private let audio = AudioInput()
     private var windows: [WallpaperWindow] = []
     private var statusItem: NSStatusItem!
     private var paused = false { didSet { windows.forEach { $0.userPaused = paused } } }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        do { try audio.start() } catch { NSLog("Eddy: system audio unavailable: \(error)") }
+        startAudio()
         rebuildWindows()
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWindows),
                                                name: NSApplication.didChangeScreenParametersNotification, object: nil)
@@ -48,6 +48,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
+    }
+
+    private func startAudio() {
+        do { try audio.start(Settings.shared.source) } catch { NSLog("Eddy: audio unavailable: \(error)") }
     }
 
     @objc private func rebuildWindows() {
@@ -70,6 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add("React to Audio", #selector(toggleReactive), on: s.reactive)
         menu.addItem(picker("Palette", Palette.allCases.map(\.rawValue), current: s.palette.rawValue, #selector(pickPalette)))
         menu.addItem(picker("Intensity", Intensity.allCases.map(\.rawValue), current: s.intensity.rawValue, #selector(pickIntensity)))
+        menu.addItem(picker("Listen to", Source.allCases.map(\.rawValue), current: s.source.rawValue, #selector(pickSource)))
         menu.addItem(.separator())
         add("Launch at Login", #selector(toggleLogin), on: SMAppService.mainApp.status == .enabled)
         menu.addItem(.separator())
@@ -114,6 +119,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func toggleReactive() { Settings.shared.reactive.toggle() }
     @objc private func pickPalette(_ sender: NSMenuItem) {
         Settings.shared.palette = Palette(rawValue: sender.representedObject as! String) ?? .neon
+    }
+    @objc private func pickSource(_ sender: NSMenuItem) {
+        Settings.shared.source = Source(rawValue: sender.representedObject as! String) ?? .system
+        startAudio()
     }
     @objc private func pickIntensity(_ sender: NSMenuItem) {
         Settings.shared.intensity = Intensity(rawValue: sender.representedObject as! String) ?? .normal

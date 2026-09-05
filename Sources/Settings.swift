@@ -36,12 +36,14 @@ final class Settings {
     var palette: Palette { didSet { save("palette", palette.rawValue) } }
     var intensity: Intensity { didSet { save("intensity", intensity.rawValue) } }
     var reactive: Bool { didSet { save("reactive", reactive) } }
+    var source: Source { didSet { save("source", source.rawValue) } }
 
     private init() {
         let d = UserDefaults.standard
         palette = Palette(rawValue: d.string(forKey: "palette") ?? "") ?? .neon
         intensity = Intensity(rawValue: d.string(forKey: "intensity") ?? "") ?? .normal
         reactive = d.object(forKey: "reactive") as? Bool ?? true
+        source = Source(rawValue: d.string(forKey: "source") ?? "") ?? .system
     }
 
     private func save(_ key: String, _ value: Any) { UserDefaults.standard.set(value, forKey: key) }
