@@ -45,7 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWindows),
                                                name: NSApplication.didChangeScreenParametersNotification, object: nil)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "water.waves", accessibilityDescription: "Eddy")
+        statusItem.button?.image = waveIcon()
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
@@ -71,6 +71,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add("Launch at Login", #selector(toggleLogin), on: SMAppService.mainApp.status == .enabled)
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Eddy", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+    }
+
+    /// Hand-drawn: the `water.waves` SF Symbol renders as a stray glyph on the macOS 27 beta.
+    private func waveIcon() -> NSImage {
+        let img = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
+            NSColor.black.setStroke()
+            for y in [4.0, 9.0, 14.0] {
+                let p = NSBezierPath()
+                p.lineWidth = 1.6
+                p.lineCapStyle = .round
+                p.move(to: NSPoint(x: 2, y: y))
+                p.curve(to: NSPoint(x: 9, y: y), controlPoint1: NSPoint(x: 4, y: y + 3), controlPoint2: NSPoint(x: 7, y: y - 3))
+                p.curve(to: NSPoint(x: 16, y: y), controlPoint1: NSPoint(x: 11, y: y + 3), controlPoint2: NSPoint(x: 14, y: y - 3))
+                p.stroke()
+            }
+            return true
+        }
+        img.isTemplate = true
+        img.accessibilityDescription = "Eddy"
+        return img
     }
 
     @objc private func togglePause() { paused.toggle() }
