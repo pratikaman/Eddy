@@ -33,6 +33,7 @@ enum Intensity: String, CaseIterable {
 final class Settings {
     static let shared = Settings()
 
+    var scene: SceneKind { didSet { save("scene", scene.rawValue) } }
     var palette: Palette { didSet { save("palette", palette.rawValue) } }
     var intensity: Intensity { didSet { save("intensity", intensity.rawValue) } }
     var reactive: Bool { didSet { save("reactive", reactive) } }
@@ -40,6 +41,7 @@ final class Settings {
 
     private init() {
         let d = UserDefaults.standard
+        scene = SceneKind(rawValue: d.string(forKey: "scene") ?? "") ?? .smoke
         palette = Palette(rawValue: d.string(forKey: "palette") ?? "") ?? .neon
         intensity = Intensity(rawValue: d.string(forKey: "intensity") ?? "") ?? .normal
         reactive = d.object(forKey: "reactive") as? Bool ?? true

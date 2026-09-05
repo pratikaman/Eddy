@@ -2,6 +2,13 @@ import AppKit
 
 if CommandLine.arguments.contains("--selftest") {
     Analyzer.selfTest()
+    Renderer.preview(to: nil)      // compiles every shader and renders every scene; fails on black
+    exit(0)
+}
+
+// `Eddy --preview DIR`: write <scene>.png for every scene into DIR.
+if let i = CommandLine.arguments.firstIndex(of: "--preview"), i + 1 < CommandLine.arguments.count {
+    Renderer.preview(to: CommandLine.arguments[i + 1])
     exit(0)
 }
 

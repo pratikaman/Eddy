@@ -23,6 +23,19 @@ A wallpaper that is alive. That's the whole app.
 
 Your files, folders and widgets stay exactly where they are, floating on top of it all.
 
+## Five ways to look
+
+Smoke is the default. Four more live in the menu, and every one of them hears the music.
+
+| | |
+|:--:|:--:|
+| ![Smoke](docs/scenes/smoke.png) **Smoke.** Ink in water. Beats detonate, bass blooms. | ![Aurora](docs/scenes/aurora.png) **Aurora.** Curtains of light over a night sky. Bass fattens them. |
+| ![Lava](docs/scenes/lava.png) **Lava.** A lava lamp. Blobs swell and merge with the low end. | ![Nebula](docs/scenes/nebula.png) **Nebula.** Deep-space gas and twinkling stars. Highs make them flicker. |
+| ![Pulse](docs/scenes/pulse.png) **Pulse.** Rings step outward on every beat. The club one. | |
+
+Pick a **Palette** to recolour any of them: Neon, Ember, Ocean, Candy or Mono. Pick an
+**Intensity** to decide how hard the music hits: Calm, Normal or Wild.
+
 ## Get it running
 
 ### The fast way: paste one line
@@ -57,12 +70,21 @@ Click **Allow**. This is how Eddy hears the music. Nothing is recorded, nothing 
 nothing leaves your Mac. Eddy listens to the rhythm of the moment and forgets it
 instantly. Click **Don't Allow** and Eddy still runs, just drifting calmly, deaf to the beat.
 
+**"Eddy would like to access the microphone."**
+Only if you switch **Listen to** over to **Room (Microphone)**. Same deal: it listens for
+rhythm in the moment, keeps nothing, sends nothing.
+
 ## The little wave in your menu bar
 
 Look at the top of your screen for a small wave icon. Click it.
 
-- **Pause** freezes the smoke mid-swirl. **Resume** lets it breathe again.
+- **Pause** freezes everything mid-swirl. **Resume** lets it breathe again.
 - **React to Audio** is on by default. Switch it off for the quiet drift only.
+- **Scene**, **Palette** and **Intensity** are the three dials: what it looks like, what
+  colour it is, how hard it dances.
+- **Listen to** picks the ears. **System Audio** hears what your Mac plays, headphones
+  included. **Room (Microphone)** hears the room instead: a speaker across the flat, a
+  party, someone singing. Your Mac will ask once before the microphone is used.
 - **Launch at Login** makes Eddy the first thing you see every morning.
 - **Quit Eddy** and your old wallpaper is back, exactly as you left it.
 
@@ -75,5 +97,6 @@ Look at the top of your screen for a small wave icon. Click it.
 
 ## Want to look inside?
 
-Curious how the smoke is made, or want to make it pinker, faster, wilder? Everything you
-need is in [BUILDING.md](BUILDING.md). The knobs are all in one place and they're labelled.
+Curious how the smoke is made, want to make it pinker, or want to write a scene of your own?
+Everything you need is in [BUILDING.md](BUILDING.md). The knobs are all in one place and
+they're labelled, and a new scene is one shader function.

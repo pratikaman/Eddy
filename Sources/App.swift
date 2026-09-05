@@ -6,12 +6,12 @@ import ServiceManagement
 /// icons), ignores the mouse, and stops rendering whenever it can't be seen.
 final class WallpaperWindow: NSWindow {
     let view: MTKView
-    let renderer: FluidRenderer
+    let renderer: Renderer
     var userPaused = false { didSet { updatePause() } }
 
     init(screen: NSScreen, audio: AudioInput?) {
         view = MTKView(frame: NSRect(origin: .zero, size: screen.frame.size), device: MTLCreateSystemDefaultDevice())
-        renderer = FluidRenderer(view: view, audio: audio)
+        renderer = Renderer(view: view, audio: audio)
         super.init(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
         level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)))
         collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenNone]
@@ -72,6 +72,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let s = Settings.shared
         add(paused ? "Resume" : "Pause", #selector(togglePause))
         add("React to Audio", #selector(toggleReactive), on: s.reactive)
+        menu.addItem(.separator())
+        menu.addItem(picker("Scene", SceneKind.allCases.map(\.rawValue), current: s.scene.rawValue, #selector(pickScene)))
         menu.addItem(picker("Palette", Palette.allCases.map(\.rawValue), current: s.palette.rawValue, #selector(pickPalette)))
         menu.addItem(picker("Intensity", Intensity.allCases.map(\.rawValue), current: s.intensity.rawValue, #selector(pickIntensity)))
         menu.addItem(picker("Listen to", Source.allCases.map(\.rawValue), current: s.source.rawValue, #selector(pickSource)))
@@ -117,6 +119,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func togglePause() { paused.toggle() }
     @objc private func toggleReactive() { Settings.shared.reactive.toggle() }
+    @objc private func pickScene(_ sender: NSMenuItem) {
+        Settings.shared.scene = SceneKind(rawValue: sender.representedObject as! String) ?? .smoke
+    }
     @objc private func pickPalette(_ sender: NSMenuItem) {
         Settings.shared.palette = Palette(rawValue: sender.representedObject as! String) ?? .neon
     }

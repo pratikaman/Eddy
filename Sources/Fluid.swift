@@ -1,5 +1,4 @@
 import MetalKit
-import QuartzCore
 import simd
 
 // Knobs. The sim is physically meaningless, these are taste.
@@ -40,9 +39,9 @@ private struct Emitter {
     func position(at t: Float) -> SIMD2<Float> { SIMD2(0.5, 0.5) + SIMD2(0.4, 0.35) * sin(freq * t + phase) }
 }
 
-final class FluidRenderer: NSObject, MTKViewDelegate {
+/// Stam-style stable fluids on ping-pong textures, driven by the frame's audio.
+final class FluidScene: Scene {
     private let device: MTLDevice
-    private let queue: MTLCommandQueue
     private let kernels: [String: MTLComputePipelineState]
     private let display: MTLRenderPipelineState
     private var velocity: MTLTexture, velocity2: MTLTexture
@@ -51,18 +50,9 @@ final class FluidRenderer: NSObject, MTKViewDelegate {
     private let divergence: MTLTexture, curl: MTLTexture
     private let simSize: SIMD2<Int>
     private let aspect: Float
-    private let audio: AudioInput?
     private var emitters: [Emitter]
-    private var time: Float = 0
-    private var last = CACurrentMediaTime()
-    private var smooth = AudioInput.Levels()
-    private var beatsSeen = 0
 
-    init(view: MTKView, audio: AudioInput?) {
-        let dev = view.device ?? MTLCreateSystemDefaultDevice()!
-        // Compiled at launch from the bundled .metal source: no Metal toolchain needed to build.
-        let src = try! String(contentsOf: Bundle.main.url(forResource: "Shaders", withExtension: "metal")!, encoding: .utf8)
-        let lib = try! dev.makeLibrary(source: src, options: nil)
+    init(device dev: MTLDevice, library lib: MTLLibrary, aspect asp: Float) {
         var k: [String: MTLComputePipelineState] = [:]
         for name in ["splat", "advect", "divergence", "jacobi", "gradientSubtract", "curl", "vorticity"] {
             k[name] = try! dev.makeComputePipelineState(function: lib.makeFunction(name: name)!)
@@ -72,7 +62,6 @@ final class FluidRenderer: NSObject, MTKViewDelegate {
         rp.fragmentFunction = lib.makeFunction(name: "display")
         rp.colorAttachments[0].pixelFormat = .bgra8Unorm
 
-        let asp = Float(view.bounds.width / max(view.bounds.height, 1))
         let sim = SIMD2(Tuning.simWidth, Int(Float(Tuning.simWidth) / asp))
         let dyeSize = SIMD2(Tuning.dyeWidth, Int(Float(Tuning.dyeWidth) / asp))
         func tex(_ s: SIMD2<Int>, _ f: MTLPixelFormat, _ bpp: Int) -> MTLTexture {
@@ -86,7 +75,6 @@ final class FluidRenderer: NSObject, MTKViewDelegate {
         }
 
         device = dev
-        queue = dev.makeCommandQueue()!
         kernels = k
         display = try! dev.makeRenderPipelineState(descriptor: rp)
         aspect = asp
@@ -95,7 +83,6 @@ final class FluidRenderer: NSObject, MTKViewDelegate {
         pressure = tex(sim, .r16Float, 2); pressure2 = tex(sim, .r16Float, 2)
         divergence = tex(sim, .r16Float, 2); curl = tex(sim, .r16Float, 2)
         dye = tex(dyeSize, .rgba16Float, 8); dye2 = tex(dyeSize, .rgba16Float, 8)
-        self.audio = audio
         emitters = (0..<3).map { i in
             var e = Emitter(freq: SIMD2(.random(in: 0.05...0.12), .random(in: 0.05...0.12)),
                             phase: SIMD2(.random(in: 0..<6.28), .random(in: 0..<6.28)),
@@ -103,65 +90,38 @@ final class FluidRenderer: NSObject, MTKViewDelegate {
             e.last = e.position(at: 0)
             return e
         }
-        super.init()
-        view.device = dev
-        view.colorPixelFormat = .bgra8Unorm
-        view.framebufferOnly = true
-        view.preferredFramesPerSecond = 60
-        view.delegate = self
     }
 
-    func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
-
-    func draw(in view: MTKView) {
-        let now = CACurrentMediaTime()
-        let dt = Float(min(now - last, 1.0 / 30)); last = now; time += dt
-        guard let cb = queue.makeCommandBuffer(), let enc = cb.makeComputeCommandEncoder() else { return }
-        emit(enc, dt)
-        step(enc, dt)
+    func draw(_ cb: MTLCommandBuffer, _ pass: MTLRenderPassDescriptor, _ frame: Frame) {
+        guard let enc = cb.makeComputeCommandEncoder() else { return }
+        emit(enc, frame)
+        step(enc, frame.dt)
         enc.endEncoding()
-        if let rpd = view.currentRenderPassDescriptor, let drawable = view.currentDrawable,
-           let r = cb.makeRenderCommandEncoder(descriptor: rpd) {
-            r.setRenderPipelineState(display)
-            r.setFragmentTexture(dye, index: 0)
-            r.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
-            r.endEncoding()
-            cb.present(drawable)
-        }
-        cb.commit()
+        guard let r = cb.makeRenderCommandEncoder(descriptor: pass) else { return }
+        r.setRenderPipelineState(display)
+        r.setFragmentTexture(dye, index: 0)
+        r.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+        r.endEncoding()
     }
 
     // MARK: forces in
 
-    private func emit(_ enc: MTLComputeCommandEncoder, _ dt: Float) {
-        let settings = Settings.shared
-        let palette = settings.palette
-        let gain = settings.intensity.gain
-        let raw = audio?.current() ?? .init()
-        let live = settings.reactive ? raw : .init()
-        smooth.bass = max(live.bass, smooth.bass - dt * 4)
-        smooth.mid = max(live.mid, smooth.mid - dt * 4)
-        smooth.high = max(live.high, smooth.high - dt * 4)
-        let frame = dt * 60
+    private func emit(_ enc: MTLComputeCommandEncoder, _ f: Frame) {
+        let dt = f.dt, gain = f.gain, palette = f.palette
+        let perFrame = dt * 60
 
         for i in emitters.indices {
-            let p = emitters[i].position(at: time)
+            let p = emitters[i].position(at: f.time)
             let v = (p - emitters[i].last) / max(dt, 1e-3)
             emitters[i].last = p
-            emitters[i].hue = (emitters[i].hue + dt * (0.01 + 0.1 * smooth.mid)).truncatingRemainder(dividingBy: 1)
+            emitters[i].hue = (emitters[i].hue + dt * (0.01 + 0.1 * f.mid)).truncatingRemainder(dividingBy: 1)
             let force = v * Float(simSize.x) * Tuning.emitterForce * dt
             splat(enc, velocity, p, Tuning.emitterRadius, SIMD4(force.x, force.y, 0, 0))
-            let color = palette.color(emitters[i].hue) * Tuning.emitterDye * (1 + 4 * smooth.bass * gain) * frame
-            splat(enc, dye, p, Tuning.emitterRadius * (1 + 2 * smooth.bass * gain), color)
+            let color = palette.color(emitters[i].hue) * Tuning.emitterDye * (1 + 4 * f.bass * gain) * perFrame
+            splat(enc, dye, p, Tuning.emitterRadius * (1 + 2 * f.bass * gain), color)
         }
-
-        if settings.reactive {
-            beatsSeen = max(beatsSeen, raw.beats - 2)   // never replay a backlog
-            while beatsSeen < raw.beats { beatsSeen += 1; burst(enc, palette, gain) }
-        } else {
-            beatsSeen = raw.beats
-        }
-        if Float.random(in: 0..<1) < smooth.high * Tuning.sparkleRate * frame * gain { sparkle(enc, palette) }
+        for _ in 0..<f.newBeats { burst(enc, palette, gain) }
+        if Float.random(in: 0..<1) < f.high * Tuning.sparkleRate * perFrame * gain { sparkle(enc, palette) }
     }
 
     private func burst(_ enc: MTLComputeCommandEncoder, _ palette: Palette, _ gain: Float) {
