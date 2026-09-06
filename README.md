@@ -1,6 +1,7 @@
-<img src="assets/icon.png" width="128" align="right" alt="">
-
-# Eddy
+<p align="center">
+  <img src="assets/icon.png" width="160" alt="">
+</p>
+<h1 align="center">Eddy</h1>
 
 Your desktop is a picture. It has been a picture since 1984.
 
