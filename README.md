@@ -1,3 +1,5 @@
+<img src="assets/icon.png" width="128" align="right" alt="">
+
 # Eddy
 
 Your desktop is a picture. It has been a picture since 1984.

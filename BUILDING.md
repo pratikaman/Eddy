@@ -16,6 +16,11 @@ keychain, otherwise ad-hoc. Set `CODESIGN_IDENTITY` to use your own. A stable id
 matters: macOS ties audio and microphone permissions to the code signature, and an ad-hoc
 signature changes every build, which resets the grants and re-prompts.
 
+**Icon.** `assets/icon.png` is the 1024 px master; `build.sh` turns it into `AppIcon.icns`.
+To replace it from new artwork on a black square, run
+`swift tools/makeicon.swift <artwork.png> assets/icon.png`: it cuts out the rounded square and
+re-lays it on the transparent canvas with Apple's inset and corner radius.
+
 ## Layout
 
 | File | What it is |
